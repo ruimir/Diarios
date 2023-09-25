@@ -1,0 +1,535 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "AIDAGo - Gestão Utilizadores",
+    "description": "Serviços Relativos À Gestão de Utilizadores",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8090"
+    },
+    {
+      "url": "http://192.168.85.157:4003"
+    },
+    {
+      "url": "http://172.21.220.44:4003"
+    },
+    {
+      "url": "http://172.21.220.49:4003"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "jwtAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "patchUserResponse": {
+        "required": [
+          "success"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "err": {
+            "type": "string"
+          }
+        }
+      },
+      "User": {
+        "required": [
+          "numMecanografico",
+          "aplica",
+          "servico",
+          "profissao",
+          "nome",
+          "cCusto",
+          "idServDep",
+          "estado",
+          "idUserIPBrick",
+          "idUserIportalDoc",
+          "nomeUserIPBrick",
+          "loginUserIPBrick",
+          "dataAtualizacao",
+          "RHV"
+        ],
+        "properties": {
+          "numMecanografico": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "palavra": {
+            "type": "string"
+          },
+          "aplica": {
+            "type": "string"
+          },
+          "servico": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "profissao": {
+            "type": "integer"
+          },
+          "nome": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "cCusto": {
+            "type": "integer"
+          },
+          "idServDep": {
+            "type": "string"
+          },
+          "estado": {
+            "type": "string"
+          },
+          "idUserIPBrick": {
+            "type": "string"
+          },
+          "idUserIportalDoc": {
+            "type": "string"
+          },
+          "nomeUserIPBrick": {
+            "type": "string"
+          },
+          "loginUserIPBrick": {
+            "type": "string"
+          },
+          "dataAtualizacao": {
+            "type": "string"
+          },
+          "tipoAutenticacao": {
+            "type": "string"
+          },
+          "forceSync": {
+            "type": "string"
+          },
+          "changeService": {
+            "type": "integer"
+          },
+          "contacto": {
+            "type": "string"
+          },
+          "observacoes": {
+            "type": "string"
+          },
+          "bloqsync": {
+            "type": "string"
+          },
+          "nomeAlternativo": {
+            "type": "string"
+          },
+          "cedulaProf": {
+            "type": "string"
+          },
+          "cartaoCidadao": {
+            "type": "string"
+          },
+          "palavraTestes": {
+            "type": "string"
+          },
+          "contribuinte": {
+            "type": "string"
+          },
+          "RHV": {
+            "type": "boolean"
+          }
+        }
+      },
+      "getUsersResponse": {
+        "required": [
+          "success"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "err": {
+            "type": "string"
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/User"
+            }
+          },
+          "total": {
+            "type": "number"
+          }
+        }
+      },
+      "getUserResponse": {
+        "required": [
+          "success"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "err": {
+            "type": "string"
+          },
+          "user": {
+            "type": "object",
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
+      "Indicator": {
+        "required": [
+          "idEquipa",
+          "nMembrosEquipa",
+          "desLocal",
+          "categoria",
+          "subcategoria",
+          "local",
+          "contexto"
+        ],
+        "properties": {
+          "idEquipa": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "nMembrosEquipa": {
+            "type": "string"
+          },
+          "desLocal": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "categoria": {
+            "type": "integer"
+          },
+          "subcategoria": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "local": {
+            "type": "integer"
+          },
+          "contexto": {
+            "type": "string"
+          }
+        }
+      },
+      "getIndicatorsResponse": {
+        "required": [
+          "success"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "err": {
+            "type": "string"
+          },
+          "indicators": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Indicator"
+            }
+          },
+          "total": {
+            "type": "number"
+          }
+        }
+      },
+      "Profession": {
+        "required": [
+          "codigo",
+          "nome",
+          "desLocal",
+          "categoria",
+          "subcategoria",
+          "local",
+          "contexto"
+        ],
+        "properties": {
+          "codigo": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "nome": {
+            "type": "string"
+          }
+        }
+      },
+      "getProfessionsResponse": {
+        "required": [
+          "success"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "err": {
+            "type": "string"
+          },
+          "indicators": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Profession"
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/users": {
+      "summary": "Utilizadores",
+      "get": {
+        "summary": "Obter Utilizadores",
+        "description": "Este endpoint vai devolver a lista de utilizadores, sendo possível a utilização de um sistema de paginação para optimização de recursos. A query paramter RHV permite filtar se os utilizadores encontram-se registados no RHV.",
+        "security": [
+          {
+            "jwtAuth": []
+          }
+        ],
+        "operationId": "getUsers",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Se o parametro for intoduzido, dá apenas as [page*10, page*10 +10] utilizadores (ou seja, começa a partir do 0)",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "description": "Parametro de pesquisa (obrigatório usar page)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "RHV",
+            "in": "query",
+            "required": false,
+            "description": "Se o utilizador encontra-se registado no RHV (0 ou 1)",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resposta por defeito",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "$ref": "#/components/schemas/getUsersResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Adicionar Utilizador",
+        "description": "Este endpoint permite adicionar um utilizador à base de dados.",
+        "operationId": "addUser",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "$ref": "#/components/schemas/User"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Resposta por defeito",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "$ref": "#/components/schemas/patchUserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/user": {
+      "summary": "Utilizador",
+      "get": {
+        "description": "Este endpoint permite obter os dados de um utilizador a partir do respetivo número mecanográfico.",
+        "summary": "Obter Utilizador",
+        "security": [
+          {
+            "jwtAuth": []
+          }
+        ],
+        "operationId": "getUser",
+        "parameters": [
+          {
+            "name": "numMecanografico",
+            "in": "query",
+            "required": false,
+            "description": "Número Mecanográfico",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resposta por defeito",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "$ref": "#/components/schemas/getUserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/indicators": {
+      "summary": "Indicadores",
+      "get": {
+        "summary": "Obter Indicadores",
+        "description": "Este endpoint permite obter os indicadores, podenedo usar um sistema de paginação para optimização de recusos",
+        "security": [
+          {
+            "jwtAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Se o parametro for intoduzido, dá apenas as [page*10, page*10 +10] indicadores (ou seja, começa a partir do 0)",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "description": "Parametro de pesquisa (obrigatório usar page)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "getIndicators",
+        "responses": {
+          "200": {
+            "description": "Resposta por defeito",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "$ref": "#/components/schemas/getIndicatorsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/professions": {
+      "summary": "Profissões",
+      "get": {
+        "summary": "Obter Profissões",
+        "description": "Este endpoint permite obter as profissões existentes na base de dados",
+        "operationId": "getProfessions",
+        "security": [
+          {
+            "jwtAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resposta por defeito",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "$ref": "#/components/schemas/getProfessionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/user/{numMecanografico}": {
+      "summary": "Utilizador",
+      "patch": {
+        "security": [
+          {
+            "jwtAuth": []
+          }
+        ],
+        "summary": "Atualizar Utilizador",
+        "description": "Este endpoint permite atualizar o nome e estado de um utilizador a partir do seu respetivo número mecanográfico.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "nome"
+                ],
+                "properties": {
+                  "nome": {
+                    "type": "string"
+                  },
+                  "estado": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "numMecanografico",
+            "in": "path",
+            "required": true,
+            "description": "Número mecanográfico do utilizador",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "operationId": "patchUser",
+        "responses": {
+          "200": {
+            "description": "Resposta por defeito",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "$ref": "#/components/schemas/patchUserResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

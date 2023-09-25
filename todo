@@ -1,0 +1,31 @@
+
+
+vou receber so um id e a origem
+
+para já integrar origem== "BSIMPLE"
+
+fazer um select a CLI_MOVE_DIARIO where id = id
+
+tudo menos a mensagem hl7
+
+duscar descricao de specialidade
+
+select * from sil.especialidades
+
+buscar o numer de ordem e medico na tabela utilizadores
+idInt e o utilizador
+
+verifica
+select * from menupce where pce_num_seq
+
+se nao existir criar um xml basico
+buscar o numero de processo na tabela pcedoentes
+
+
+se for o primeiro diario, ver estrutura do xml na mensagem do abelha
+
+
+conf=0 se for U
+se for C é 1
+
+e atializar a data inegracao no cli_move_diario
