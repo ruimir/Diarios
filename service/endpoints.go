@@ -2,11 +2,7 @@ package service
 
 import (
 	"context"
-	"fmt"
-	"github.com/go-kit/kit/auth/jwt"
 	"github.com/go-kit/kit/endpoint"
-	stdjwt "github.com/golang-jwt/jwt/v4"
-	"os"
 )
 
 // Endpoints collects all of the endpoints that compose a profile service. It's
@@ -38,7 +34,7 @@ func MakeServerEndpoints(s Service) Endpoints {
 
 // Esta função faz verificações preliminares, devolvendo a chave privada para a verificação do JWT.
 // A chave é obtida da variável de ambiente
-func keyFunc(token *stdjwt.Token) (interface{}, error) {
+/*func keyFunc(token *stdjwt.Token) (interface{}, error) {
 	// Don't forget to validate the alg is what you expect:
 	if _, ok := token.Method.(*stdjwt.SigningMethodHMAC); !ok {
 		return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
@@ -58,7 +54,7 @@ func keyFunc(token *stdjwt.Token) (interface{}, error) {
 
 	// hmacSampleSecret is a []byte containing your secret, e.g. []byte("my_secret_key")
 	return []byte(jwtSecret), nil
-}
+}*/
 
 // Existem duas formas de dar erro nos endpoints
 // Por exemplo, no Login,
@@ -68,12 +64,12 @@ func keyFunc(token *stdjwt.Token) (interface{}, error) {
 
 // O jwt.NewParser devolve um endpoint.Middleware, que é uma função que dado um Endpoint recebe outro Endpoint.
 // Assim sendo, o parser recebe o Endpoint e devolve outro, que vai primeiro executar a verificação do JWT, e depois executa o nosso Endpoint
-var jwtParser = jwt.NewParser(keyFunc, stdjwt.SigningMethodHS256, jwt.StandardClaimsFactory)
+//var jwtParser = jwt.NewParser(keyFunc, stdjwt.SigningMethodHS256, jwt.StandardClaimsFactory)
 
 // MakeGetUsersEndpoint returns an endpoint via the passed service.
 // Primarily useful in a server.
 func MakeIntegrarDiario(s Service) endpoint.Endpoint {
-	return jwtParser(func(ctx context.Context, request interface{}) (response interface{}, err error) {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(IntegrarDiarioRequest)
 
 		//Nota: Primeiro passa pelo middleware, depois pelo service!
@@ -83,7 +79,7 @@ func MakeIntegrarDiario(s Service) endpoint.Endpoint {
 		} else {
 			return IntegrarDiarioResponse{Success: true, Err: nil}, nil
 		}
-	})
+	}
 }
 
 // We have two options to return errors from the business logic.

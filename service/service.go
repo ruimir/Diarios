@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	_ "github.com/godror/godror"
 	"github.com/jmoiron/sqlx"
 	"log"
@@ -17,8 +19,53 @@ type service struct {
 }
 
 func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err error) {
-	//TODO implement me
-	panic("implement me")
+
+	var codEspecialidade string
+
+	errQuery := s.pceDB.QueryRowContext(ctx, "SELECT COD_ESPECIALIDADE from CLI_MOVE_DIARIO where id=:id AND ORIGEM=:origem", id, origem).Scan(&codEspecialidade)
+	if errQuery != nil {
+		if errors.Is(errQuery, sql.ErrNoRows) {
+			return errors.New("diario não existe")
+		}
+	}
+
+	var designacaoEspecialidade string
+
+	errQuery = s.pceDB.QueryRowContext(ctx, "select DESIGNACAO from sil.especialidades where CODIGO=:cod", codEspecialidade).Scan(&designacaoEspecialidade)
+	if errQuery != nil {
+		if errors.Is(errQuery, sql.ErrNoRows) {
+			return errors.New("especialidade definida no diario não existe")
+		}
+	}
+
+	var nomeMedico string
+	var numOrdem string
+
+	errQuery = s.pceDB.QueryRowContext(ctx, "select UTILIZADOR,IDINT from UTILIZADORES where IDUTILIZADOR=:id", codEspecialidade).Scan(&nomeMedico, &numOrdem)
+	if errQuery != nil {
+		if errors.Is(errQuery, sql.ErrNoRows) {
+			return errors.New("médico definido no diario não existe")
+		}
+	}
+
+	var menuPCE string
+	var createDiary = false
+
+	var menuPCEXML PCE
+
+	errQuery = s.pceDB.QueryRowContext(ctx, "select MENUPCE from MENUPCE where PCE_NUM_SEQ=:numSeq", codEspecialidade).Scan(&menuPCE)
+	if errQuery != nil {
+		if errors.Is(errQuery, sql.ErrNoRows) {
+			//Diario nao existe
+			createDiary = true
+			menuPCEXML = genericPCEXML()
+		}
+	}
+
+	if createDiary {
+	}
+
+	return nil
 }
 
 func NewService(pceCon string, jwtSecret string) Service {

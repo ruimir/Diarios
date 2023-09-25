@@ -1,0 +1,2 @@
+GET http://localhost:8090/IntegrarDiario?id=222&origem=BSIMPLE
+Accept: application/json

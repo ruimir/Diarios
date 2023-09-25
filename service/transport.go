@@ -28,7 +28,7 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 
 	r.Methods("GET").Path("/IntegrarDiario").Handler(httptransport.NewServer(
 		e.IntegrarDiario,
-		decodeGetConsetimentosAnteriores,
+		decodeIntegrarDiario,
 		encodeResponse,
 		options...,
 	))
@@ -39,7 +39,7 @@ func MakeHTTPHandler(s Service, logger log.Logger) http.Handler {
 	return r
 }
 
-func decodeGetConsetimentosAnteriores(_ context.Context, r *http.Request) (request interface{}, err error) {
+func decodeIntegrarDiario(_ context.Context, r *http.Request) (request interface{}, err error) {
 	queryString := r.URL.Query()
 
 	id := -1
@@ -55,7 +55,7 @@ func decodeGetConsetimentosAnteriores(_ context.Context, r *http.Request) (reque
 		}
 	}
 
-	if containsOrigem {
+	if !containsOrigem {
 		return nil, errors.New("erro a ler origem")
 	}
 
