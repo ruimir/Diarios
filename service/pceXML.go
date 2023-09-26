@@ -1,6 +1,9 @@
 package service
 
-import "encoding/xml"
+import (
+	"encoding/xml"
+	"log"
+)
 
 type PCE struct {
 	XMLName  xml.Name `xml:"PCE"`
@@ -39,50 +42,7 @@ type PCE struct {
 				Titulo string `xml:"titulo,attr"`
 				Liga   string `xml:"liga,attr"`
 			} `xml:"NOVO"`
-			RSOAP struct {
-				Text          string `xml:",chardata"`
-				Titulo        string `xml:"titulo,attr"`
-				Mostra        string `xml:"mostra,attr"`
-				Liga          string `xml:"liga,attr"`
-				Versao        string `xml:"versao,attr"`
-				Data          string `xml:"data,attr"`
-				Hora          string `xml:"hora,attr"`
-				Autor         string `xml:"autor,attr"`
-				Problema      string `xml:"problema,attr"`
-				Episodio      string `xml:"episodio,attr"`
-				Nome          string `xml:"nome,attr"`
-				Especialidade string `xml:"especialidade,attr"`
-				RSOAPL        struct {
-					Text          string `xml:",chardata"`
-					Titulo        string `xml:"titulo,attr"`
-					Mostra        string `xml:"mostra,attr"`
-					Liga          string `xml:"liga,attr"`
-					Conf          string `xml:"conf,attr"`
-					Versao        string `xml:"versao,attr"`
-					Data          string `xml:"data,attr"`
-					Hora          string `xml:"hora,attr"`
-					Autor         string `xml:"autor,attr"`
-					Problema      string `xml:"problema,attr"`
-					Episodio      string `xml:"episodio,attr"`
-					Nome          string `xml:"nome,attr"`
-					Especialidade string `xml:"especialidade,attr"`
-					RSO           struct {
-						Text   string `xml:",chardata"`
-						Titulo string `xml:"titulo,attr"`
-						Valor  string `xml:"valor,attr"`
-					} `xml:"RSO"`
-					RA struct {
-						Text   string `xml:",chardata"`
-						Titulo string `xml:"titulo,attr"`
-						Valor  string `xml:"valor,attr"`
-					} `xml:"RA"`
-					RPI struct {
-						Text   string `xml:",chardata"`
-						Titulo string `xml:"titulo,attr"`
-						Valor  string `xml:"valor,attr"`
-					} `xml:"RPI"`
-				} `xml:"RSOAPL"`
-			} `xml:"RSOAP"`
+			RSOAP []RSOAP `xml:"RSOAP"`
 		} `xml:"SOAPG"`
 		LPNT struct {
 			Text   string `xml:",chardata"`
@@ -137,6 +97,65 @@ type PCE struct {
 	} `xml:"DOCS"`
 }
 
+type RSO struct {
+	Text   string `xml:",chardata"`
+	Titulo string `xml:"titulo,attr"`
+	Valor  string `xml:"valor,attr"`
+}
+
+type RA struct {
+	Text   string `xml:",chardata"`
+	Titulo string `xml:"titulo,attr"`
+	Valor  string `xml:"valor,attr"`
+}
+
+type RPI struct {
+	Text   string `xml:",chardata"`
+	Titulo string `xml:"titulo,attr"`
+	Valor  string `xml:"valor,attr"`
+}
+
+type RSOAPL struct {
+	Text          string `xml:",chardata"`
+	Titulo        string `xml:"titulo,attr"`
+	Mostra        string `xml:"mostra,attr"`
+	Liga          string `xml:"liga,attr"`
+	Conf          string `xml:"conf,attr"`
+	Versao        string `xml:"versao,attr"`
+	Data          string `xml:"data,attr"`
+	Hora          string `xml:"hora,attr"`
+	Autor         string `xml:"autor,attr"`
+	Problema      string `xml:"problema,attr"`
+	Episodio      string `xml:"episodio,attr"`
+	Nome          string `xml:"nome,attr"`
+	Especialidade string `xml:"especialidade,attr"`
+	RSO           RSO    `xml:"RSO"`
+	RA            RA     `xml:"RA"`
+	RPI           RPI    `xml:"RPI"`
+}
+
+type RSOAP struct {
+	Text          string   `xml:",chardata"`
+	Titulo        string   `xml:"titulo,attr"`
+	Mostra        string   `xml:"mostra,attr"`
+	Liga          string   `xml:"liga,attr"`
+	Versao        string   `xml:"versao,attr"`
+	Data          string   `xml:"data,attr"`
+	Hora          string   `xml:"hora,attr"`
+	Autor         string   `xml:"autor,attr"`
+	Problema      string   `xml:"problema,attr"`
+	Episodio      string   `xml:"episodio,attr"`
+	Nome          string   `xml:"nome,attr"`
+	Especialidade string   `xml:"especialidade,attr"`
+	RSOAPL        []RSOAPL `xml:"RSOAPL"`
+}
+
 func genericPCEXML() PCE {
-	return PCE{}
+	blob := `<PCE titulo="Processo Clínico Electrónico" nome="" processo="" mostra="0"> <BDI titulo="Base de Dados Integral" mostra="0"> <NOVO titulo="Nova BDI" liga="novabdi.aspx?x=BDI" /> </BDI> <LP titulo="Lista de Problemas" mostra="0" activo="-1"> <NOVO titulo="Novo Problema Activo" liga="novalp.aspx?x=LP" /> <SOAPG titulo="SOAPs Globais" mostra="0" activo="-1"> <NOVO titulo="Novo SOAP Global" liga="novasoap.aspx?x=RSOAPG" /> </SOAPG> <LPNT titulo="Problemas não Tratados" mostra="0"></LPNT> <LPR titulo="Problemas Resolvidos" mostra="0"></LPR> </LP> <BN titulo="Bloco de Notas Clínico" mostra="0"> <NOVO titulo="Novo Bloco Clínico" liga="novabn.aspx?x=BN" /> </BN> <DADOR titulo="Dador" mostra="0"> <NOVO titulo="Novo Dador Multiorgãos" liga="novadador.aspx?x=DADORM" /> <NOVO titulo="Novo Dador Corneas" liga="novadador.aspx?x=DADORC" /> </DADOR> <NOTAALTA titulo="Notas de Alta" mostra="0"> <NOVO titulo="Nova Nota de Alta" liga="nova2alta.aspx?x=NOTAALTA" /> </NOTAALTA> <DOCS titulo="Documentos" mostra="0"> <URG titulo="Notas de Alta Urgencia" mostra="0"></URG> </DOCS> </PCE>`
+	var generic PCE
+	if err := xml.Unmarshal([]byte(blob), &generic); err != nil {
+		log.Fatal(err)
+	}
+
+	return generic
 }
