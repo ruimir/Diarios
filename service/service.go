@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	_ "github.com/godror/godror"
@@ -21,10 +22,26 @@ type service struct {
 	jwtSecret string
 }
 
+type Diario_BSIMPLE struct {
+	Type           string `json:"type"`
+	Nsequencial    string `json:"nsequencial"`
+	Nome           string `json:"nome"`
+	Datanascimento string `json:"datanascimento"`
+	Episodio       struct {
+		Numepisodio      string `json:"numepisodio"`
+		Modulo           string `json:"modulo"`
+		CodEspecialidade string `json:"codEspecialidade"`
+		DesEspecialidade string `json:"desEspecialidade"`
+	} `json:"episodio"`
+	Diario struct {
+		Diario string `json:"diario"`
+	} `json:"diario"`
+}
+
 func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err error) {
 
 	if origem != "BSIMPLE" {
-		return errors.New("origem não suportada")
+		return errors.New("origem não suportada, apenas BSIMPLE")
 	}
 
 	var codEspecialidade string
@@ -43,6 +60,13 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 		} else {
 			return errors.New("erro a obter diario")
 		}
+	}
+
+	var diarioBsimple Diario_BSIMPLE
+
+	err = json.Unmarshal([]byte(diario), &diarioBsimple)
+	if err != nil {
+		return errors.New("erro a fazer unmarshal do diario BSIMPLE")
 	}
 
 	dataRegisto, err := time.Parse("2006-01-02T15:04:05Z07:00", dataRegistoStr)
@@ -84,7 +108,7 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 
 	var menuPCEXML PCE
 
-	errQuery = s.pceDB.QueryRowContext(ctx, "select MENUPCE from MENUPCE where PCE_NUM_SEQ=:numSeq", codEspecialidade).Scan(&menuPCE)
+	errQuery = s.pceDB.QueryRowContext(ctx, "select MENUPCE from MENUPCE where PCE_NUM_SEQ=:numSeq", numSequencial).Scan(&menuPCE)
 	if errQuery != nil {
 		if errors.Is(errQuery, sql.ErrNoRows) {
 			//Diario nao existe
@@ -101,8 +125,8 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 
 			createDiary = true
 			menuPCEXML = genericPCEXML()
-			menuPCEXML.Nome = numProcesso
-			menuPCEXML.Processo = nome
+			menuPCEXML.Nome = nome
+			menuPCEXML.Processo = numProcesso
 
 		} else {
 			return errors.New("erro a obter menuPCE")
@@ -190,7 +214,7 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 					RSO: RSO{
 						Text:   "",
 						Titulo: "Dados Semiológicos",
-						Valor:  diario,
+						Valor:  diarioBsimple.Diario.Diario,
 					},
 					RA: RA{
 						Text:   "",
@@ -239,7 +263,7 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 						RSO: RSO{
 							Text:   "",
 							Titulo: "Dados Semiológicos",
-							Valor:  diario,
+							Valor:  diarioBsimple.Diario.Diario,
 						},
 						RA: RA{
 							Text:   "",
