@@ -108,20 +108,21 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 
 	var menuPCEXML PCE
 
-	errQuery = s.pceDB.QueryRowContext(ctx, "select MENUPCE from MENUPCE where PCE_NUM_SEQ=:numSeq", numSequencial).Scan(&menuPCE)
+	var numProcesso, nome string
+
+	errQuery = s.pceDB.QueryRowContext(ctx, "select NUM_PROCESSO,nome from PCEDOENTES where NUM_SEQUENCIAL=:ns", numSequencial).Scan(&numProcesso, &nome)
+	if errQuery != nil {
+		if errors.Is(errQuery, sql.ErrNoRows) {
+			return errors.New("doente nao existe na tabela PCEDOENTES")
+		} else {
+			return errors.New("erro a obter número de processo e/ou nome do doente")
+		}
+	}
+
+	errQuery = s.pceDB.QueryRowContext(ctx, "select MENUPCE from MENUPCE where NUMPROCESSO=:numProcesso", numProcesso).Scan(&menuPCE)
 	if errQuery != nil {
 		if errors.Is(errQuery, sql.ErrNoRows) {
 			//Diario nao existe
-			var numProcesso, nome string
-
-			errQuery = s.pceDB.QueryRowContext(ctx, "select NUM_PROCESSO,nome from PCEDOENTES where NUM_SEQUENCIAL=:ns", numSequencial).Scan(&numProcesso, &nome)
-			if errQuery != nil {
-				if errors.Is(errQuery, sql.ErrNoRows) {
-					return errors.New("doente nao existe na tabela PCEDOENTES")
-				} else {
-					return errors.New("erro a obter número de processo e/ou nome do doente")
-				}
-			}
 
 			createDiary = true
 			menuPCEXML = genericPCEXML()
