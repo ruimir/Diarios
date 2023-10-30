@@ -1,11 +1,13 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
+	"github.com/godror/godror"
 	_ "github.com/godror/godror"
 	"github.com/jmoiron/sqlx"
 	"log"
@@ -38,6 +40,8 @@ type Diario_BSIMPLE struct {
 	} `json:"diario"`
 }
 
+const updError = "operacao é UPD, mas diario não existe"
+
 func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err error) {
 
 	if origem != "BSIMPLE" {
@@ -52,14 +56,21 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 	var diario string
 	var dataRegistoStr string
 	var confidencial string
+	var operacao string
 
-	errQuery := s.pceDB.QueryRowContext(ctx, "SELECT COD_ESPECIALIDADE,NUM_SEQUENCIAL,NUM_MECANOGRAFICO,NUM_EPISODIO,COD_MODULO,DIARIO,DATA_REGISTO,CONFIDENCIAL from CLI_MOVE_DIARIO where id=:id AND ORIGEM=:origem", id, origem).Scan(&codEspecialidade, &numSequencial, &numMecanografico, &numEpisodio, &codModulo, &diario, &dataRegistoStr, &confidencial)
+	errQuery := s.pceDB.QueryRowContext(ctx, "SELECT COD_ESPECIALIDADE,NUM_SEQUENCIAL,NUM_MECANOGRAFICO,NUM_EPISODIO,COD_MODULO,DIARIO,DATA_REGISTO,CONFIDENCIAL,OPERACAO from CLI_MOVE_DIARIO where id=:id AND ORIGEM=:origem and TIPODIARIO='CS'", id, origem).Scan(&codEspecialidade, &numSequencial, &numMecanografico, &numEpisodio, &codModulo, &diario, &dataRegistoStr, &confidencial, &operacao)
 	if errQuery != nil {
 		if errors.Is(errQuery, sql.ErrNoRows) {
 			return errors.New("diario não existe")
 		} else {
 			return errors.New("erro a obter diario")
 		}
+	}
+
+	var problema string
+
+	if operacao == "ADI" {
+		problema = "Adenda"
 	}
 
 	var diarioBsimple Diario_BSIMPLE
@@ -119,10 +130,14 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 		}
 	}
 
-	errQuery = s.pceDB.QueryRowContext(ctx, "select MENUPCE from MENUPCE where NUMPROCESSO=:numProcesso", numProcesso).Scan(&menuPCE)
+	errQuery = s.pceDB.QueryRowContext(ctx, "select t.MENUPCE.extract('/').getClobVal()  from MENUPCE  t where NUMPROCESSO=:numprocesso", numProcesso).Scan(&menuPCE)
 	if errQuery != nil {
 		if errors.Is(errQuery, sql.ErrNoRows) {
 			//Diario nao existe
+
+			if operacao == "UPD" {
+				return errors.New(updError)
+			}
 
 			createDiary = true
 			menuPCEXML = genericPCEXML()
@@ -141,6 +156,11 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 	}
 
 	if len(menuPCEXML.LP.SOAPG.RSOAP) == 0 {
+
+		if operacao == "UPD" {
+			return errors.New(updError)
+		}
+
 		//criar um diario apenas
 		var rsoap = RSOAP{
 			Text:          "RSOAP",
@@ -165,7 +185,7 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 				Data:          dataRegisto.Format("02-01-2006"),
 				Hora:          dataRegisto.Format("15:04:05"),
 				Autor:         numMecanografico,
-				Problema:      "",
+				Problema:      problema,
 				Episodio:      strconv.Itoa(numEpisodio) + codModulo,
 				Nome:          nomeMedico,
 				Especialidade: designacaoEspecialidade,
@@ -184,80 +204,33 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 					Titulo: "Decisão/Plano",
 					Valor:  "",
 				},
+				IdDiario: id,
 			}},
 		}
 		menuPCEXML.LP.SOAPG.RSOAP = make([]RSOAP, 0)
 		menuPCEXML.LP.SOAPG.RSOAP = append(menuPCEXML.LP.SOAPG.RSOAP, rsoap)
 	} else {
-		//verificar se dia já existe
-		var matchFound = false
-		for i, rsoap := range menuPCEXML.LP.SOAPG.RSOAP {
-			if rsoap.Data == dataRegisto.Format("02-01-2006") {
-				//match found, append
-				matchFound = true
-				atoi, err := strconv.Atoi(rsoap.RSOAPL[len(rsoap.RSOAPL)-1].Titulo)
-				if err != nil {
-					return errors.New("erro a converter titulo do diario para inteiro")
-				}
-				rsoapl := RSOAPL{
-					Text:          "RSOAP",
-					Titulo:        strconv.Itoa(atoi+1) + " - SOAP Diário - " + dataRegisto.Format("02-01-2006"),
-					Mostra:        "1",
-					Liga:          "novasoap.aspx?x=RSOAPG",
-					Versao:        "2",
-					Data:          dataRegisto.Format("02-01-2006"),
-					Hora:          dataRegisto.Format("15:04:05"),
-					Autor:         numMecanografico,
-					Problema:      "",
-					Episodio:      strconv.Itoa(numEpisodio) + codModulo,
-					Nome:          nomeMedico,
-					Especialidade: designacaoEspecialidade,
-					RSO: RSO{
-						Text:   "",
-						Titulo: "Dados Semiológicos",
-						Valor:  diarioBsimple.Diario.Diario,
-					},
-					RA: RA{
-						Text:   "",
-						Titulo: "Análise/Avaliação",
-						Valor:  "",
-					},
-					RPI: RPI{
-						Text:   "",
-						Titulo: "Decisão/Plano",
-						Valor:  "",
-					},
-				}
-
-				menuPCEXML.LP.SOAPG.RSOAP[i].RSOAPL = append(menuPCEXML.LP.SOAPG.RSOAP[i].RSOAPL, rsoapl)
-
-				break
-			}
-			if !matchFound {
-				var rsoap = RSOAP{
-					Text:          "RSOAP",
-					Titulo:        dataRegisto.Format("02-01-2006") + " - SOAP Diário",
-					Mostra:        "1",
-					Liga:          "novasoap.aspx?x=RSOAPG",
-					Versao:        "2",
-					Data:          dataRegisto.Format("02-01-2006"),
-					Hora:          dataRegisto.Format("15:04:05"),
-					Autor:         numMecanografico,
-					Problema:      "",
-					Episodio:      strconv.Itoa(numEpisodio) + codModulo,
-					Nome:          nomeMedico,
-					Especialidade: designacaoEspecialidade,
-					RSOAPL: []RSOAPL{{
-						Text:          "",
-						Titulo:        "",
+		if operacao != "UPD" {
+			//verificar se dia já existe
+			var matchFound = false
+			for i, rsoap := range menuPCEXML.LP.SOAPG.RSOAP {
+				if rsoap.Data == dataRegisto.Format("02-01-2006") {
+					//match found, append
+					matchFound = true
+					atoi, err := strconv.Atoi(rsoap.RSOAPL[len(rsoap.RSOAPL)-1].Titulo)
+					if err != nil {
+						atoi = 0
+					}
+					rsoapl := RSOAPL{
+						Text:          "RSOAP",
+						Titulo:        strconv.Itoa(atoi+1) + " - SOAP Diário - " + dataRegisto.Format("02-01-2006"),
 						Mostra:        "1",
-						Liga:          "",
-						Conf:          confidencial,
-						Versao:        "1",
+						Liga:          "novasoap.aspx?x=RSOAPG",
+						Versao:        "2",
 						Data:          dataRegisto.Format("02-01-2006"),
 						Hora:          dataRegisto.Format("15:04:05"),
 						Autor:         numMecanografico,
-						Problema:      "",
+						Problema:      problema,
 						Episodio:      strconv.Itoa(numEpisodio) + codModulo,
 						Nome:          nomeMedico,
 						Especialidade: designacaoEspecialidade,
@@ -276,11 +249,73 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 							Titulo: "Decisão/Plano",
 							Valor:  "",
 						},
-					}},
+						IdDiario: id,
+					}
+
+					menuPCEXML.LP.SOAPG.RSOAP[i].RSOAPL = append(menuPCEXML.LP.SOAPG.RSOAP[i].RSOAPL, rsoapl)
+
+					break
 				}
-				menuPCEXML.LP.SOAPG.RSOAP = append(menuPCEXML.LP.SOAPG.RSOAP, rsoap)
+				if !matchFound {
+					var rsoap = RSOAP{
+						Text:          "RSOAP",
+						Titulo:        dataRegisto.Format("02-01-2006") + " - SOAP Diário",
+						Mostra:        "1",
+						Liga:          "novasoap.aspx?x=RSOAPG",
+						Versao:        "2",
+						Data:          dataRegisto.Format("02-01-2006"),
+						Hora:          dataRegisto.Format("15:04:05"),
+						Autor:         numMecanografico,
+						Problema:      "",
+						Episodio:      strconv.Itoa(numEpisodio) + codModulo,
+						Nome:          nomeMedico,
+						Especialidade: designacaoEspecialidade,
+						RSOAPL: []RSOAPL{{
+							Text:          "",
+							Titulo:        "",
+							Mostra:        "1",
+							Liga:          "",
+							Conf:          confidencial,
+							Versao:        "1",
+							Data:          dataRegisto.Format("02-01-2006"),
+							Hora:          dataRegisto.Format("15:04:05"),
+							Autor:         numMecanografico,
+							Problema:      problema,
+							Episodio:      strconv.Itoa(numEpisodio) + codModulo,
+							Nome:          nomeMedico,
+							Especialidade: designacaoEspecialidade,
+							RSO: RSO{
+								Text:   "",
+								Titulo: "Dados Semiológicos",
+								Valor:  diarioBsimple.Diario.Diario,
+							},
+							RA: RA{
+								Text:   "",
+								Titulo: "Análise/Avaliação",
+								Valor:  "",
+							},
+							RPI: RPI{
+								Text:   "",
+								Titulo: "Decisão/Plano",
+								Valor:  "",
+							},
+							IdDiario: id,
+						}},
+					}
+					menuPCEXML.LP.SOAPG.RSOAP = append(menuPCEXML.LP.SOAPG.RSOAP, rsoap)
+				}
+			}
+		} else {
+			for i, rsoap := range menuPCEXML.LP.SOAPG.RSOAP {
+				for i2, rsoapl := range rsoap.RSOAPL {
+					if rsoapl.IdDiario == id {
+						menuPCEXML.LP.SOAPG.RSOAP[i].RSOAPL[i2].RSO.Valor = diarioBsimple.Diario.Diario
+						break
+					}
+				}
 			}
 		}
+
 	}
 
 	output, err := xml.Marshal(menuPCEXML)
@@ -295,8 +330,8 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 	}
 
 	if createDiary {
-		//criar diario
-		_, err := tx.Exec("INSERT INTO MENUPCE VALUES(:numProcesso, :menupce,:numSeq)", menuPCEXML.Processo, string(output), numSequencial)
+		//criar diario, nao pode ser UPD
+		_, err := tx.Exec("INSERT INTO MENUPCE VALUES(:numProcesso, XMLTYPE(:menupce),:numSeq)", menuPCEXML.Processo, godror.Lob{IsClob: true, Reader: bytes.NewReader(output)}, numSequencial)
 		if err != nil {
 			_ = tx.Rollback()
 			return err
@@ -304,12 +339,19 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 
 	} else {
 		//atualizar diario
-		_, err := tx.Exec("UPDATE MENUPCE set MENUPCE=:menu where numProcesso=:numProcesso", string(output), menuPCEXML.Processo)
+		_, err := tx.Exec("UPDATE MENUPCE set MENUPCE=XMLTYPE(:menu) where numProcesso=:numProcesso", godror.Lob{IsClob: true, Reader: bytes.NewReader(output)}, menuPCEXML.Processo)
 		if err != nil {
 			log.Println(err)
 			_ = tx.Rollback()
 			return errors.New("erro a atualizar diario")
 		}
+
+	}
+
+	_, err = tx.Exec("update CLI_MOVE_DIARIO set DATA_INTEGRACAO=sysdate where ID=:id", id)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
 	}
 
 	err = tx.Commit()

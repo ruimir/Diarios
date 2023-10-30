@@ -132,6 +132,7 @@ type RSOAPL struct {
 	RSO           RSO    `xml:"RSO"`
 	RA            RA     `xml:"RA"`
 	RPI           RPI    `xml:"RPI"`
+	IdDiario      int    `xml:"idDiario,attr"`
 }
 
 type RSOAP struct {
