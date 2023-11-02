@@ -57,8 +57,9 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 	var dataRegistoStr string
 	var confidencial string
 	var operacao string
+	var tipoDiario string
 
-	errQuery := s.pceDB.QueryRowContext(ctx, "SELECT COD_ESPECIALIDADE,NUM_SEQUENCIAL,NUM_MECANOGRAFICO,NUM_EPISODIO,COD_MODULO,DIARIO,DATA_REGISTO,CONFIDENCIAL,OPERACAO from CLI_MOVE_DIARIO where id=:id AND ORIGEM=:origem and TIPODIARIO='CS'", id, origem).Scan(&codEspecialidade, &numSequencial, &numMecanografico, &numEpisodio, &codModulo, &diario, &dataRegistoStr, &confidencial, &operacao)
+	errQuery := s.pceDB.QueryRowContext(ctx, "SELECT COD_ESPECIALIDADE,NUM_SEQUENCIAL,NUM_MECANOGRAFICO,NUM_EPISODIO,COD_MODULO,DIARIO,DATA_REGISTO,CONFIDENCIAL,OPERACAO,TIPODIARIO from CLI_MOVE_DIARIO where id=:id AND ORIGEM=:origem and TIPODIARIO in ('CS','ASC','DS')", id, origem).Scan(&codEspecialidade, &numSequencial, &numMecanografico, &numEpisodio, &codModulo, &diario, &dataRegistoStr, &confidencial, &operacao, &tipoDiario)
 	if errQuery != nil {
 		if errors.Is(errQuery, sql.ErrNoRows) {
 			return errors.New("diario não existe")
@@ -130,6 +131,19 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 		}
 	}
 
+	if tipoDiario == "CS" {
+		return processCSDiario(ctx, id, errQuery, s, numProcesso, menuPCE, operacao, createDiary, menuPCEXML, nome, dataRegisto, numMecanografico, numEpisodio, codModulo, nomeMedico, designacaoEspecialidade, confidencial, problema, diario, diarioBsimple, err, numSequencial)
+	} else {
+		return processASCouDSDiario()
+	}
+
+}
+
+func processASCouDSDiario() error {
+	return nil
+}
+
+func processCSDiario(ctx context.Context, id int, errQuery error, s service, numProcesso string, menuPCE string, operacao string, createDiary bool, menuPCEXML PCE, nome string, dataRegisto time.Time, numMecanografico string, numEpisodio int, codModulo string, nomeMedico string, designacaoEspecialidade string, confidencial string, problema string, diario string, diarioBsimple Diario_BSIMPLE, err error, numSequencial string) error {
 	errQuery = s.pceDB.QueryRowContext(ctx, "select t.MENUPCE.extract('/').getClobVal()  from MENUPCE  t where NUMPROCESSO=:numprocesso", numProcesso).Scan(&menuPCE)
 	if errQuery != nil {
 		if errors.Is(errQuery, sql.ErrNoRows) {
