@@ -131,15 +131,119 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 		}
 	}
 
+	var numTransferencia int
+	errQuery = s.pceDB.QueryRowContext(ctx, "select NUM_TRANSFERENCIA from pceinternados a1 where INT_EPISODIO = :int_episodio and COD_ESPECIALIDADE_PREV = :cod_especialidade and DTA_SAIDA is null;", numSequencial).Scan(&numTransferencia)
+	if errQuery != nil {
+		if errors.Is(errQuery, sql.ErrNoRows) {
+			return errors.New("paciente nao esta internado")
+		} else {
+			return errors.New("erro a identificar se paciente esta internado")
+		}
+	}
+
 	if tipoDiario == "CS" {
 		return processCSDiario(ctx, id, errQuery, s, numProcesso, menuPCE, operacao, createDiary, menuPCEXML, nome, dataRegisto, numMecanografico, numEpisodio, codModulo, nomeMedico, designacaoEspecialidade, confidencial, problema, diario, diarioBsimple, err, numSequencial)
 	} else {
-		return processASCouDSDiario()
+		return processASCouDSDiario(ctx, s, tipoDiario)
 	}
 
 }
 
-func processASCouDSDiario() error {
+func processASCouDSDiario(ctx context.Context, s service, tipoDiario string) error {
+
+	var dataCriacao string
+	errQuery := s.pceDB.QueryRowContext(ctx, "s\tselect nvl((select (select max(to_date(to_char(a2.dta_saida, 'ddmmyyyy') || to_char(to_date(a2.hora_saida, 'sssss'), 'hh24mi'), 'ddmmyyyyhh24mi')) from PCEINTERNADOS a2 where a1.INT_EPISODIO = a2.INT_EPISODIO and a2.NUM_TRANSFERENCIA < a1.NUM_TRANSFERENCIA) dta_admissao from pceinternados a1 where INT_EPISODIO = :int_episodio and COD_ESPECIALIDADE_PREV = :cod_especialidade_prev and DTA_SAIDA is null), (select to_date(to_char(dta_internamento, 'ddmmyyyy') || to_char(to_date(hora_internamento, 'sssss'), 'hh24mi'), 'ddmmyyyyhh24mi') dta_admissao from pceadmissoes where INT_EPISODIO = :int_episodio2)) from dual", 23029669, "39601", 23029669).Scan(&dataCriacao)
+	if errQuery != nil {
+		if errors.Is(errQuery, sql.ErrNoRows) {
+			return errors.New("data de criacao nao existe")
+		} else {
+			return errors.New("erro a obter data de criacao")
+		}
+	}
+
+	//vou fazer um select a tabla docadmissao com o episodio e a data de cricacaoi =data do select anterior
+
+	var existeDocAdmissao = true
+
+	errQuery = s.pceDB.QueryRowContext(ctx, "select nProcesso from DOC_ADMISSAO where episodio=:episodio and DATACRIACAO=todate(:data)", 1, dataCriacao).Scan(&dataCriacao)
+	if errQuery != nil {
+		if errors.Is(errQuery, sql.ErrNoRows) {
+			existeDocAdmissao = false
+		} else {
+			return errors.New("erro a fazer query a tabela docadmissao")
+		}
+	}
+
+	var dadosNovaAlta = genericDadosNovaAlta()
+	var documentosAIDA = genericDocumentosAIDA()
+
+	//preparar XMLs
+	output, err := xml.Marshal(dadosNovaAlta)
+	if err != nil {
+		return errors.New("erro a fazer marshal dos dadosNovaAlta")
+	}
+
+	output2, err := xml.Marshal(documentosAIDA)
+	if err != nil {
+		return errors.New("erro a fazer marshal dos documentosAIDA")
+	}
+
+	// Begin the transaction
+	tx, err := s.pceDB.Begin()
+	if err != nil {
+		return errors.New("erro a iniciar transação")
+	}
+
+	if existeDocAdmissao {
+		//se o resultado for null vamos correr os dois inserts
+
+		_, err = tx.Exec("", godror.Lob{IsClob: true, Reader: bytes.NewReader(output)})
+		if err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+
+		_, err = tx.Exec("", godror.Lob{IsClob: true, Reader: bytes.NewReader(output2)})
+		if err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+
+	switch tipoDiario {
+	case "ASC":
+		{
+			//se for asc vamos fazer o update na tabela doc_admissao
+			//no update ao doc_admissao alterar a coluna dataalteracao com o valor sysdate
+			_, err = tx.Exec("")
+			if err != nil {
+				_ = tx.Rollback()
+				return err
+			}
+		}
+	case "DS":
+		{
+			//se for ds vamos fazer o update na tabela doc_alta
+			//no update ao doc_alta alterar a coluna dataalteracao com o valor sysdate e passar a coluna estado para 0 (zero)
+			_, err = tx.Exec("", 3)
+			if err != nil {
+				_ = tx.Rollback()
+				return err
+			}
+		}
+	default:
+		{
+			_ = tx.Rollback()
+			return errors.New("tipo de diario nao suportado")
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return errors.New("erro a fazer commit da transação")
+
+	}
+
 	return nil
 }
 
