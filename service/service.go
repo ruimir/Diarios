@@ -132,7 +132,7 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 	}
 
 	var numTransferencia int
-	errQuery = s.pceDB.QueryRowContext(ctx, "select NUM_TRANSFERENCIA from pceinternados a1 where INT_EPISODIO = :int_episodio and COD_ESPECIALIDADE_PREV = :cod_especialidade and DTA_SAIDA is null;", numSequencial).Scan(&numTransferencia)
+	errQuery = s.pceDB.QueryRowContext(ctx, "select NUM_TRANSFERENCIA from pceinternados a1 where INT_EPISODIO = :int_episodio and COD_ESPECIALIDADE_PREV = :cod_especialidade and DTA_SAIDA is null", numEpisodio, codEspecialidade).Scan(&numTransferencia)
 	if errQuery != nil {
 		if errors.Is(errQuery, sql.ErrNoRows) {
 			return errors.New("paciente nao esta internado")
@@ -144,15 +144,15 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 	if tipoDiario == "CS" {
 		return processCSDiario(ctx, id, errQuery, s, numProcesso, menuPCE, operacao, createDiary, menuPCEXML, nome, dataRegisto, numMecanografico, numEpisodio, codModulo, nomeMedico, designacaoEspecialidade, confidencial, problema, diario, diarioBsimple, err, numSequencial)
 	} else {
-		return processASCouDSDiario(ctx, s, tipoDiario)
+		return processASCouDSDiario(ctx, s, tipoDiario, codEspecialidade, numEpisodio, numProcesso, nomeMedico, numOrdem, diario, designacaoEspecialidade)
 	}
 
 }
 
-func processASCouDSDiario(ctx context.Context, s service, tipoDiario string) error {
+func processASCouDSDiario(ctx context.Context, s service, tipoDiario string, codEspecialidade string, numEpisodio int, numProcesso string, nomeMedico string, numOrdem string, diario string, designacaoEspecialidade string) error {
 
 	var dataCriacao string
-	errQuery := s.pceDB.QueryRowContext(ctx, "s\tselect nvl((select (select max(to_date(to_char(a2.dta_saida, 'ddmmyyyy') || to_char(to_date(a2.hora_saida, 'sssss'), 'hh24mi'), 'ddmmyyyyhh24mi')) from PCEINTERNADOS a2 where a1.INT_EPISODIO = a2.INT_EPISODIO and a2.NUM_TRANSFERENCIA < a1.NUM_TRANSFERENCIA) dta_admissao from pceinternados a1 where INT_EPISODIO = :int_episodio and COD_ESPECIALIDADE_PREV = :cod_especialidade_prev and DTA_SAIDA is null), (select to_date(to_char(dta_internamento, 'ddmmyyyy') || to_char(to_date(hora_internamento, 'sssss'), 'hh24mi'), 'ddmmyyyyhh24mi') dta_admissao from pceadmissoes where INT_EPISODIO = :int_episodio2)) from dual", 23029669, "39601", 23029669).Scan(&dataCriacao)
+	errQuery := s.pceDB.QueryRowContext(ctx, "select  to_char(nvl((select (select max(to_date(to_char(a2.dta_saida, 'ddmmyyyy') || to_char(to_date(a2.hora_saida, 'sssss'), 'hh24mi'), 'ddmmyyyyhh24mi')) from PCEINTERNADOS a2 where a1.INT_EPISODIO = a2.INT_EPISODIO and a2.NUM_TRANSFERENCIA < a1.NUM_TRANSFERENCIA) dta_admissao from pceinternados a1 where INT_EPISODIO = :int_episodio and COD_ESPECIALIDADE_PREV = :cod_especialidade_prev and DTA_SAIDA is null), (select to_date(to_char(dta_internamento, 'ddmmyyyy') || to_char(to_date(hora_internamento, 'sssss'), 'hh24mi'), 'ddmmyyyyhh24mi') dta_admissao from pceadmissoes where INT_EPISODIO = :int_episodio2)),'YYYY-MM-DD HH24:MI:SS') from dual", numEpisodio, codEspecialidade, numEpisodio).Scan(&dataCriacao)
 	if errQuery != nil {
 		if errors.Is(errQuery, sql.ErrNoRows) {
 			return errors.New("data de criacao nao existe")
@@ -161,11 +161,12 @@ func processASCouDSDiario(ctx context.Context, s service, tipoDiario string) err
 		}
 	}
 
-	//vou fazer um select a tabla docadmissao com o episodio e a data de cricacaoi =data do select anterior
+	//vou fazer um select a tabla docadmissao com o numEpisodio e a data de cricacaoi =data do select anterior
 
 	var existeDocAdmissao = true
+	var nProcesso string
 
-	errQuery = s.pceDB.QueryRowContext(ctx, "select nProcesso from DOC_ADMISSAO where episodio=:episodio and DATACRIACAO=todate(:data)", 1, dataCriacao).Scan(&dataCriacao)
+	errQuery = s.pceDB.QueryRowContext(ctx, "select nProcesso from DOC_ADMISSAO where episodio=:numEpisodio and DATACRIACAO=to_date(:data,'YYYY-MM-DD HH24:MI:SS')", numEpisodio, dataCriacao).Scan(&nProcesso)
 	if errQuery != nil {
 		if errors.Is(errQuery, sql.ErrNoRows) {
 			existeDocAdmissao = false
@@ -177,13 +178,31 @@ func processASCouDSDiario(ctx context.Context, s service, tipoDiario string) err
 	var dadosNovaAlta = genericDadosNovaAlta()
 	var documentosAIDA = genericDocumentosAIDA()
 
+	//preencher documentosAIDA
+	documentosAIDA.Processo = numProcesso
+	documentosAIDA.Episodio = strconv.Itoa(numEpisodio)
+	documentosAIDA.Publicado = numOrdem
+	documentosAIDA.Autor = nomeMedico + " (NO)" + numOrdem
+	documentosAIDA.RELATORIO.Hora = ""
+	documentosAIDA.RELATORIO.Data = ""
+	documentosAIDA.RELATORIO.Autor = numOrdem
+	documentosAIDA.RELATORIO.ENQUADRAMENTO1.Valor = diario
+
+	//preencher dadosNovaAlta
+	dadosNovaAlta.Data = ""
+	dadosNovaAlta.Hora = ""
+	dadosNovaAlta.Autor = nomeMedico + " (NO)" + numOrdem
+	dadosNovaAlta.Episodio = strconv.Itoa(numEpisodio)
+	dadosNovaAlta.Especialidade = codEspecialidade
+	dadosNovaAlta.RESUMO.Valor = diario
+
 	//preparar XMLs
-	output, err := xml.Marshal(dadosNovaAlta)
+	altaXML, err := xml.Marshal(dadosNovaAlta)
 	if err != nil {
 		return errors.New("erro a fazer marshal dos dadosNovaAlta")
 	}
 
-	output2, err := xml.Marshal(documentosAIDA)
+	documentosXML, err := xml.Marshal(documentosAIDA)
 	if err != nil {
 		return errors.New("erro a fazer marshal dos documentosAIDA")
 	}
@@ -197,13 +216,18 @@ func processASCouDSDiario(ctx context.Context, s service, tipoDiario string) err
 	if existeDocAdmissao {
 		//se o resultado for null vamos correr os dois inserts
 
-		_, err = tx.Exec("", godror.Lob{IsClob: true, Reader: bytes.NewReader(output)})
+		idMedico, err := strconv.Atoi(numOrdem)
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec("insert into doc_admissao (nprocesso, EPISODIO, modulo, nsequencial, nome, datan, sexo, servico, esp, desp, datacriacao, dataalteracao, relatorio, filex, estado, menuxml, adita, utilcria, utilpub, utnome, utilres, utnomeres, ORDEM, extra_inf) select a2.num_processo, a1.int_episodio, 'INT', a2.num_sequencial, a2.nome, a2.dta_nascimento, a2.sexo, (select idserv from servico where SSONHO = :cod_esp and ROWNUM=1), :cod_esp2, :des_esp, (select nvl((select (select max(to_date(to_char(a2.dta_saida, 'ddmmyyyy') || to_char(to_date(a2.hora_saida, 'sssss'), 'hh24miss'), 'ddmmyyyyhh24miss')) from PCEINTERNADOS a2 where a1.INT_EPISODIO = a2.INT_EPISODIO and a2.NUM_TRANSFERENCIA < a1.NUM_TRANSFERENCIA) dta_admissao from pceinternados a1 where INT_EPISODIO = :numEpisodio2 and COD_ESPECIALIDADE_PREV = :cod_esp3 and DTA_SAIDA is null), (select to_date(to_char(dta_internamento, 'ddmmyyyy') || to_char(to_date(hora_internamento, 'sssss'), 'hh24miss'), 'ddmmyyyyhh24miss') dta_admissao from pceadmissoes where INT_EPISODIO = :numEpisodio)) from dual), sysdate, 'Relatório de Admissão (Rascunho)', 'defeiton_1', 0, null, null, :id_medico, null, :nome_medico, null, null, 1, null from pceadmissoes a1, pcedoentes a2 where a1.num_sequencial = a2.num_sequencial and int_episodio = :episodio2", codEspecialidade, codEspecialidade, designacaoEspecialidade, numEpisodio, codEspecialidade, numEpisodio, idMedico, nomeMedico, numEpisodio)
 		if err != nil {
 			_ = tx.Rollback()
 			return err
 		}
 
-		_, err = tx.Exec("", godror.Lob{IsClob: true, Reader: bytes.NewReader(output2)})
+		_, err = tx.Exec("insert into doc_alta (NPROCESSO, EPISODIO, MODULO, NSEQUENCIAL, NOME, DATAN, SEXO, SERVICO, ESP, DESP, DATACRIACAO, DATAALTERACAO, RELATORIO, FILEX, ESTADO, TIPO, MENUXML, ADITA, UTILCRIA, UTILPUB, UTNOME, UTILRES, UTNOMERES, ORDEM, EXTRA_INF, FECHOU) select a2.num_processo, a1.int_episodio, 'INT', a2.num_sequencial, a2.nome, a2.dta_nascimento, a2.sexo, (select idserv from servico where SSONHO = :cod_esp and ROWNUM=1), :cod_esp2, :des_esp, (select nvl((select (select max(to_date(to_char(a2.dta_saida, 'ddmmyyyy') || to_char(to_date(a2.hora_saida, 'sssss'), 'hh24miss'), 'ddmmyyyyhh24miss')) from PCEINTERNADOS a2 where a1.INT_EPISODIO = a2.INT_EPISODIO and a2.NUM_TRANSFERENCIA < a1.NUM_TRANSFERENCIA) dta_admissao from pceinternados a1 where INT_EPISODIO = :numEpisodio and COD_ESPECIALIDADE_PREV = :cod_esp3 and DTA_SAIDA is null), (select to_date(to_char(dta_internamento, 'ddmmyyyy') || to_char(to_date(hora_internamento, 'sssss'), 'hh24miss'), 'ddmmyyyyhh24miss') dta_admissao from pceadmissoes where INT_EPISODIO = :numEpisodio2)) from dual), sysdate, 'Relatório de Alta (Rascunho)', 'defeiton_1', 9, 0, null, null, :id_medico, null, :nome_medico, null, null, 1, null, 0 from pceadmissoes a1, pcedoentes a2 where a1.num_sequencial = a2.num_sequencial and int_episodio = :episodio2", codEspecialidade, codEspecialidade, designacaoEspecialidade, numEpisodio, codEspecialidade, numEpisodio, idMedico, nomeMedico, numEpisodio)
 		if err != nil {
 			_ = tx.Rollback()
 			return err
@@ -215,7 +239,7 @@ func processASCouDSDiario(ctx context.Context, s service, tipoDiario string) err
 		{
 			//se for asc vamos fazer o update na tabela doc_admissao
 			//no update ao doc_admissao alterar a coluna dataalteracao com o valor sysdate
-			_, err = tx.Exec("")
+			_, err = tx.Exec("update DOC_ADMISSAO set DATAALTERACAO=sysdate, MENUXML=XMLTYPE(:docadmissao) where EPISODIO= :numEpisodio and to_date(:data,'YYYY-MM-DD HH24:MI:SS')", godror.Lob{IsClob: true, Reader: bytes.NewReader(documentosXML)}, numEpisodio, dataCriacao)
 			if err != nil {
 				_ = tx.Rollback()
 				return err
@@ -225,7 +249,7 @@ func processASCouDSDiario(ctx context.Context, s service, tipoDiario string) err
 		{
 			//se for ds vamos fazer o update na tabela doc_alta
 			//no update ao doc_alta alterar a coluna dataalteracao com o valor sysdate e passar a coluna estado para 0 (zero)
-			_, err = tx.Exec("", 3)
+			_, err = tx.Exec("update DOC_ALTA set DATAALTERACAO= sysdate, ESTADO = 0, MENUXML=XMLTYPE(:docalta) where EPISODIO = :numEpisodio and DATACRIACAO = to_date(:data,'YYYY-MM-DD HH24:MI:SS')", godror.Lob{IsClob: true, Reader: bytes.NewReader(altaXML)}, numEpisodio, dataCriacao)
 			if err != nil {
 				_ = tx.Rollback()
 				return err
