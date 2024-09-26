@@ -12,6 +12,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -69,6 +70,8 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 	}
 
 	var problema string
+
+	diario = strings.ReplaceAll(diario, "\\r\\n", "<br>")
 
 	if operacao == "ADI" {
 		problema = "Adenda"
