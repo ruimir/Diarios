@@ -305,7 +305,7 @@ func processCSDiario(ctx context.Context, id int, errQuery error, s service, num
 
 		//criar um diario apenas
 		var rsoap = RSOAP{
-			Text:          "RSOAP",
+			Text:          "",
 			Titulo:        dataRegisto.Format("02-01-2006") + " - SOAP Diário",
 			Mostra:        "1",
 			Liga:          "novasoap.aspx?x=RSOAPG",
@@ -364,7 +364,7 @@ func processCSDiario(ctx context.Context, id int, errQuery error, s service, num
 						atoi = 0
 					}
 					rsoapl := RSOAPL{
-						Text:          "RSOAP",
+						Text:          "",
 						Titulo:        strconv.Itoa(atoi+1) + " - SOAP Diário - " + dataRegisto.Format("02-01-2006"),
 						Mostra:        "1",
 						Liga:          "novasoap.aspx?x=RSOAPG",
@@ -400,7 +400,7 @@ func processCSDiario(ctx context.Context, id int, errQuery error, s service, num
 				}
 				if !matchFound {
 					var rsoap = RSOAP{
-						Text:          "RSOAP",
+						Text:          "",
 						Titulo:        dataRegisto.Format("02-01-2006") + " - SOAP Diário",
 						Mostra:        "1",
 						Liga:          "novasoap.aspx?x=RSOAPG",
