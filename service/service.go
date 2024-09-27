@@ -71,13 +71,13 @@ func (s service) IntegrarDiario(ctx context.Context, id int, origem string) (err
 
 	var problema string
 
-	diario = strings.ReplaceAll(diario, "\\r\\n", "<br>")
-
 	if operacao == "ADI" {
 		problema = "Adenda"
 	}
 
 	var diarioBsimple Diario_BSIMPLE
+
+	diario = strings.ReplaceAll(diario, "\\r\\n", "<br>")
 
 	err = json.Unmarshal([]byte(diario), &diarioBsimple)
 	if err != nil {
@@ -337,7 +337,7 @@ func processCSDiario(ctx context.Context, id int, errQuery error, s service, num
 				RSO: RSO{
 					Text:   "",
 					Titulo: "Dados Semiológicos",
-					Valor:  diario,
+					Valor:  diarioBsimple.Diario.Diario,
 				},
 				RA: RA{
 					Text:   "",
